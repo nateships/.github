@@ -110,26 +110,16 @@ def contributions():
 
 def fetch():
     user = get(f"/users/{LOGIN}")
-    repos = [
-        r for r in get(f"/users/{LOGIN}/repos?type=owner&per_page=100&sort=pushed")
-        if not r["fork"] and not r["archived"] and not r["private"] and r["name"] != ".github"
-    ]
-    releases = []
-    for r in repos:
-        rel = get(f"/repos/{LOGIN}/{r['name']}/releases/latest")
-        if rel:
-            releases.append((rel["published_at"], r["name"], rel["tag_name"]))
-    releases.sort(reverse=True)
     sponsors = None
     try:
         data = graphql('{ user(login:"%s"){ sponsors{ totalCount } } }' % LOGIN)
         sponsors = data["user"]["sponsors"]["totalCount"] if data else None
     except Exception:
         pass
-    return user, repos, contributions(), releases, sponsors
+    return user, contributions(), sponsors
 
 
-def lines(user, repos, contrib, releases, sponsors):
+def lines(user, contrib, sponsors):
     """Rows of (kind, payload). kind: cmd, out, chart, rich."""
     out = []
     who = [user.get("name") or LOGIN]
@@ -139,15 +129,6 @@ def lines(user, repos, contrib, releases, sponsors):
     if user.get("blog"):
         who.append(user["blog"].replace("https://", ""))
     out += [("cmd", "whoami"), ("out", " · ".join(who))]
-
-    out.append(("cmd", "ls ~/projects --sort=stars"))
-    top = sorted(repos, key=lambda r: -r["stargazers_count"])[:4]
-    w = max(len(r["name"]) for r in top)
-    for r in top:
-        lang = (r.get("language") or "-")[:6]
-        desc = (r.get("description") or "").split(". ")[0].split(" that ")[0]
-        desc = desc[:44] + ("…" if len(desc) > 44 else "")
-        out.append(("out", f"{r['name']:<{w}}  ★{r['stargazers_count']:<3} {lang:<6} {desc}"))
 
     if contrib:
         out.append(("cmd", f"git contributions --last={WEEKS}w --graph"))
@@ -161,11 +142,6 @@ def lines(user, repos, contrib, releases, sponsors):
         cur, longest = contrib["streak"]
         out.append(("out", f"streak {cur} days · longest {longest} days · "
                            f"peak week {pub + prv:,} ({dt.date.fromisoformat(peak_date).strftime('%b %-d')})"))
-
-    if releases:
-        out.append(("cmd", "gh release list --latest"))
-        for date, repo, tag in releases[:3]:
-            out.append(("out", f"{repo:<{w}}  {tag:<9} {date[:10]}"))
 
     out.append(("cmd", "gh sponsors"))
     n = "?" if sponsors is None else sponsors
