@@ -12,8 +12,9 @@ body:
   - type: input
     id: version
     attributes:
-      label: Version or commit
-      placeholder: v0.3.1 or a1b2c3d
+      label: Version
+      description: The release version or the commit you run.
+      placeholder: 0.1.1
     validations:
       required: true
   - type: input
@@ -21,9 +22,10 @@ body:
     attributes:
       label: Platform
       placeholder: macOS 15 arm64
+    validations:
+      required: true
   - type: textarea
-    id: logs
+    id: bundle
     attributes:
-      label: Logs or output
-      description: Paste the exact error text. Remove secrets.
-      render: shell
+      label: Logs or support bundle
+      description: Paste the exact error text, or drag in a support bundle if the project makes one. Remove secrets first.

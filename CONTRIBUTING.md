@@ -1,21 +1,31 @@
 # Contributing
 
-## Before you start
+## Setup
 
-Open an issue for anything larger than a small fix. It avoids work that does not land.
+Repositories that ship a `mise.toml` install their tools with [mise](https://mise.jdx.dev):
+
+```sh
+mise install
+mise run setup
+```
+
+Otherwise the README says how to set up.
+
+## Tasks
+
+```sh
+mise tasks              # list every task the repository defines
+mise run check          # lint and tests, the same as CI
+```
+
+Repositories without mise list their checks in the README or in `.github/workflows`.
 
 ## Changes
 
-1. Fork the repository and create a branch from `main`.
-2. Keep the change small. One fix or one feature per pull request.
-3. Match the existing style. Do not reformat code you did not change.
-4. Add or update tests when the repository has them.
-5. Run the checks that CI runs. The repository README or `mise.toml` lists them.
+Changes reach `main` through pull requests that pass CI. Keep one fix or one feature per pull request. Match the existing style and do not reformat code you did not change. Add or update tests when the repository has them.
 
-## Commits
+Commit subjects follow [Conventional Commits](https://www.conventionalcommits.org): `feat(cli):`, `fix(app):`, `docs:`, `chore:`. Repositories that release use [release-please](https://github.com/googleapis/release-please); it turns those commits into the changelog and the version bump. Until 1.0, a feature bumps the minor version and a fix bumps the patch version.
 
-Commit subjects follow [Conventional Commits](https://www.conventionalcommits.org): `feat:`, `fix:`, `docs:`, `chore:`. Add a scope when it helps: `fix(cli):`.
+## Layout
 
-## Pull requests
-
-Say what the change does and why. Link the issue. Pull requests need passing CI before review.
+The README describes the repository layout. Open an issue before a change that moves things around.
