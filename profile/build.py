@@ -118,16 +118,10 @@ def fetch():
         if rel:
             releases.append((rel["published_at"], r["name"], rel["tag_name"]))
     releases.sort(reverse=True)
-    sponsors = None
-    try:
-        data = graphql('{ user(login:"%s"){ sponsors{ totalCount } } }' % LOGIN)
-        sponsors = data["user"]["sponsors"]["totalCount"] if data else None
-    except Exception:
-        pass
-    return user, contributions(), releases, sponsors
+    return user, contributions(), releases
 
 
-def lines(user, contrib, releases, sponsors):
+def lines(user, contrib, releases):
     """Rows of (kind, payload). kind: cmd, out, chart, rich."""
     out = []
     who = [user.get("name") or LOGIN]
@@ -149,10 +143,7 @@ def lines(user, contrib, releases, sponsors):
         out.append(("out", f"streak {cur} days · longest {longest} days · "
                            f"peak week {pub + prv:,} ({dt.date.fromisoformat(peak_date).strftime('%b %-d')})"))
 
-    if sponsors:
-        out.append(("cmd", "gh sponsors"))
-        out.append(("out", f"{sponsors} sponsor{'' if sponsors == 1 else 's'} · github.com/sponsors/{LOGIN}"))
-    elif releases:
+    if releases:
         out.append(("cmd", "gh release list --latest"))
         w = max(len(name) for _, name, _ in releases[:3])
         for date, repo, tag in releases[:3]:
