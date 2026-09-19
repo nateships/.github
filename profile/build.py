@@ -110,16 +110,24 @@ def contributions():
 
 def fetch():
     user = get(f"/users/{LOGIN}")
+    releases = []
+    for r in get(f"/users/{LOGIN}/repos?type=owner&per_page=100&sort=pushed"):
+        if r["fork"] or r["archived"] or r["private"]:
+            continue
+        rel = get(f"/repos/{LOGIN}/{r['name']}/releases/latest")
+        if rel:
+            releases.append((rel["published_at"], r["name"], rel["tag_name"]))
+    releases.sort(reverse=True)
     sponsors = None
     try:
         data = graphql('{ user(login:"%s"){ sponsors{ totalCount } } }' % LOGIN)
         sponsors = data["user"]["sponsors"]["totalCount"] if data else None
     except Exception:
         pass
-    return user, contributions(), sponsors
+    return user, contributions(), releases, sponsors
 
 
-def lines(user, contrib, sponsors):
+def lines(user, contrib, releases, sponsors):
     """Rows of (kind, payload). kind: cmd, out, chart, rich."""
     out = []
     who = [user.get("name") or LOGIN]
@@ -141,9 +149,14 @@ def lines(user, contrib, sponsors):
         out.append(("out", f"streak {cur} days · longest {longest} days · "
                            f"peak week {pub + prv:,} ({dt.date.fromisoformat(peak_date).strftime('%b %-d')})"))
 
-    out.append(("cmd", "gh sponsors"))
-    n = "?" if sponsors is None else sponsors
-    out.append(("out", f"{n} sponsor{'' if sponsors == 1 else 's'} · github.com/sponsors/{LOGIN}"))
+    if sponsors:
+        out.append(("cmd", "gh sponsors"))
+        out.append(("out", f"{sponsors} sponsor{'' if sponsors == 1 else 's'} · github.com/sponsors/{LOGIN}"))
+    elif releases:
+        out.append(("cmd", "gh release list --latest"))
+        w = max(len(name) for _, name, _ in releases[:3])
+        for date, repo, tag in releases[:3]:
+            out.append(("out", f"{repo:<{w}}  {tag:<9} {date[:10]}"))
 
     now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     out += [("cmd", "date -u"), ("out", f"{now} · this file rebuilds itself every 6 hours")]
