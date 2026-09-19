@@ -9,3 +9,5 @@ Default community health files for all `nateships` repositories. A repository th
 | `SUPPORT.md` | Support link on the new-issue page |
 | `CONTRIBUTING.md` | Contributing link on new issues and pull requests |
 | `.github/ISSUE_TEMPLATE/` | Bug and feature forms, blank issues allowed |
+
+`profile/README.md` is the account profile page. `profile/build.py` renders the terminal picture from live GitHub data, and the `profile` workflow reruns it every six hours.
