@@ -124,13 +124,21 @@ def fetch():
 def lines(user, contrib, releases):
     """Rows of (kind, payload). kind: cmd, out, chart, rich."""
     out = []
-    who = [user.get("name") or LOGIN]
-    for key in ("location", "company"):
-        if user.get(key):
-            who.append(user[key])
-    if user.get("blog"):
-        who.append(user["blog"].replace("https://", ""))
-    out += [("cmd", "whoami"), ("out", " · ".join(who))]
+    since = dt.datetime.fromisoformat(user["created_at"].replace("Z", "+00:00"))
+    up = dt.datetime.now(dt.timezone.utc) - since
+    years, days = divmod(up.days, 365)
+    info = [
+        ("title", f"{LOGIN}@github"),
+        ("rule", ""),
+        ("Name", user.get("name") or LOGIN),
+        ("Location", user.get("location") or ""),
+        ("Company", user.get("company") or ""),
+        ("Site", (user.get("blog") or "").replace("https://", "")),
+        ("Uptime", f"{years} years, {days} days"),
+    ]
+    info = [(k, v) for k, v in info if v or k == "rule"]
+    info += [("", "")] * (len(SHIP) - len(info))
+    out += [("cmd", "whoami"), ("fetch", list(zip(SHIP, info)))]
 
     if contrib:
         out.append(("cmd", f"git contributions --last={WEEKS}w --graph"))
@@ -151,6 +159,16 @@ def lines(user, contrib, releases):
     out += [("cmd", "date -u"), ("out", f"{now} · this file rebuilds itself every 6 hours")]
     return out
 
+
+SHIP = [
+    r"        |    |    |         ",
+    r"       )_)  )_)  )_)        ",
+    r"      )___))___))___)\      ",
+    r"     )____)____)_____)\\    ",
+    r"   _____|____|____|____\\\__ ",
+    r"   \                   /    ",
+    r" ~~~~~~~~~~~~~~~~~~~~~~~~~~ ",
+]
 
 THEMES = {
     "dark": dict(bg="#0d1117", frame="#161b22", border="#30363d", text="#c9d1d9", cmd="#e6edf3",
@@ -207,6 +225,27 @@ def chart(c, i, x, y, w, h, clock, t, css):
     return "".join(parts)
 
 
+def fetch_block(rows, i, x, y, clock, t, css):
+    """Art on the left, label/value pairs on the right, one line at a time."""
+    parts = []
+    col = x + (len(SHIP[0]) + 2) * CHAR
+    for k, (art, (label, value)) in enumerate(rows):
+        cls = f"l{i}_{k}"
+        css.append(f".{cls}{{animation:show 0s {clock + k * 0.06:.2f}s forwards}}")
+        ly = y + k * LINE
+        water = art.strip().startswith("~")
+        line = f'<text x="{x}" y="{ly}" fill="{t["private" if water else "prompt"]}">{html.escape(art)}</text>'
+        if label == "title":
+            line += f'<text x="{col:.1f}" y="{ly}" fill="{t["cmd"]}" font-weight="bold">{html.escape(value)}</text>'
+        elif label == "rule":
+            line += f'<text x="{col:.1f}" y="{ly}" fill="{t["dim"]}">{"─" * 16}</text>'
+        elif label:
+            line += (f'<text x="{col:.1f}" y="{ly}" fill="{t["prompt"]}">{html.escape(label)}</text>'
+                     f'<text x="{col + 10 * CHAR:.1f}" y="{ly}" fill="{t["text"]}">{html.escape(value)}</text>')
+        parts.append(f'<g class="{cls}" opacity="0">{line}</g>')
+    return "".join(parts)
+
+
 def rich(segments, i, x, y, t):
     """Text with small color swatches: [(theme_color_key or None, text), ...]."""
     parts = [f'<g class="l{i}" opacity="0">']
@@ -227,7 +266,7 @@ def render(rows, theme):
     t = THEMES[theme]
     width = 820
     header = 36
-    n = sum(CHART_LINES if k == "chart" else 1 for k, _ in rows) + 1
+    n = sum(CHART_LINES if k == "chart" else len(SHIP) if k == "fetch" else 1 for k, _ in rows) + 1
     height = header + PAD + LINE * n + PAD
     css = []
     body = []
@@ -240,6 +279,11 @@ def render(rows, theme):
             row += CHART_LINES - 1
             body.append(chart(payload, i, PAD, y - LINE + 8, width - 2 * PAD, LINE * CHART_LINES - 14, clock, t, css))
             clock += 0.9
+            continue
+        if kind == "fetch":
+            row += len(SHIP) - 1
+            body.append(fetch_block(payload, i, PAD, y, clock, t, css))
+            clock += 0.06 * len(payload) + 0.2
             continue
         if kind == "rich":
             css.append(f".l{i}{{animation:show 0s {clock:.2f}s forwards}}")
@@ -301,6 +345,9 @@ def main():
             print("    " + payload, file=sys.stderr)
         elif kind == "rich":
             print("    " + " · ".join(s for _, s in payload), file=sys.stderr)
+        elif kind == "fetch":
+            for art, (label, value) in payload:
+                print(f"    {art}  {label:<9} {value}".rstrip(), file=sys.stderr)
         else:
             print(f"    [chart: {len(payload['weeks'])} weeks, total {payload['total']}, private {payload['private']}]",
                   file=sys.stderr)
