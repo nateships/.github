@@ -125,20 +125,15 @@ def lines(user, contrib, releases):
     """Rows of (kind, payload). kind: cmd, out, chart, rich."""
     out = []
     since = dt.datetime.fromisoformat(user["created_at"].replace("Z", "+00:00"))
-    up = dt.datetime.now(dt.timezone.utc) - since
-    years, days = divmod(up.days, 365)
-    info = [
-        ("title", f"{LOGIN}@github"),
-        ("rule", ""),
-        ("Name", user.get("name") or LOGIN),
-        ("Location", user.get("location") or ""),
-        ("Company", user.get("company") or ""),
-        ("Site", (user.get("blog") or "").replace("https://", "")),
-        ("Uptime", f"{years} years, {days} days"),
-    ]
-    info = [(k, v) for k, v in info if v or k == "rule"]
-    info += [("", "")] * (len(SHIP) - len(info))
-    out += [("cmd", "whoami"), ("fetch", list(zip(SHIP, info)))]
+    years, days = divmod((dt.datetime.now(dt.timezone.utc) - since).days, 365)
+    who = [user.get("name") or LOGIN]
+    for key in ("location", "company"):
+        if user.get(key):
+            who.append(user[key])
+    if user.get("blog"):
+        who.append(user["blog"].replace("https://", ""))
+    who.append(f"up {years} years, {days} days")
+    out += [("cmd", "whoami"), ("banner", BANNER), ("out", " · ".join(who))]
 
     if contrib:
         out.append(("cmd", f"git contributions --last={WEEKS}w --graph"))
@@ -160,14 +155,13 @@ def lines(user, contrib, releases):
     return out
 
 
-SHIP = [
-    r"        |    |    |         ",
-    r"       )_)  )_)  )_)        ",
-    r"      )___))___))___)\      ",
-    r"     )____)____)_____)\\    ",
-    r"   _____|____|____|____\\\__ ",
-    r"   \                   /    ",
-    r" ~~~~~~~~~~~~~~~~~~~~~~~~~~ ",
+BANNER = [   # figlet -f slant nateships
+    r"                __            __    _          ",
+    r"   ____  ____ _/ /____  _____/ /_  (_)___  _____",
+    r"  / __ \/ __ `/ __/ _ \/ ___/ __ \/ / __ \/ ___/",
+    r" / / / / /_/ / /_/  __(__  ) / / / / /_/ (__  ) ",
+    r"/_/ /_/\__,_/\__/\___/____/_/ /_/_/ .___/____/  ",
+    r"                                 /_/            ",
 ]
 
 THEMES = {
@@ -225,27 +219,6 @@ def chart(c, i, x, y, w, h, clock, t, css):
     return "".join(parts)
 
 
-def fetch_block(rows, i, x, y, clock, t, css):
-    """Art on the left, label/value pairs on the right, one line at a time."""
-    parts = []
-    col = x + (len(SHIP[0]) + 2) * CHAR
-    for k, (art, (label, value)) in enumerate(rows):
-        cls = f"l{i}_{k}"
-        css.append(f".{cls}{{animation:show 0s {clock + k * 0.06:.2f}s forwards}}")
-        ly = y + k * LINE
-        water = art.strip().startswith("~")
-        line = f'<text x="{x}" y="{ly}" fill="{t["private" if water else "prompt"]}">{html.escape(art)}</text>'
-        if label == "title":
-            line += f'<text x="{col:.1f}" y="{ly}" fill="{t["cmd"]}" font-weight="bold">{html.escape(value)}</text>'
-        elif label == "rule":
-            line += f'<text x="{col:.1f}" y="{ly}" fill="{t["dim"]}">{"─" * 16}</text>'
-        elif label:
-            line += (f'<text x="{col:.1f}" y="{ly}" fill="{t["prompt"]}">{html.escape(label)}</text>'
-                     f'<text x="{col + 10 * CHAR:.1f}" y="{ly}" fill="{t["text"]}">{html.escape(value)}</text>')
-        parts.append(f'<g class="{cls}" opacity="0">{line}</g>')
-    return "".join(parts)
-
-
 def rich(segments, i, x, y, t):
     """Text with small color swatches: [(theme_color_key or None, text), ...]."""
     parts = [f'<g class="l{i}" opacity="0">']
@@ -266,7 +239,7 @@ def render(rows, theme):
     t = THEMES[theme]
     width = 820
     header = 36
-    n = sum(CHART_LINES if k == "chart" else len(SHIP) if k == "fetch" else 1 for k, _ in rows) + 1
+    n = sum(CHART_LINES if k == "chart" else len(BANNER) if k == "banner" else 1 for k, _ in rows) + 1
     height = header + PAD + LINE * n + PAD
     css = []
     body = []
@@ -280,9 +253,11 @@ def render(rows, theme):
             body.append(chart(payload, i, PAD, y - LINE + 8, width - 2 * PAD, LINE * CHART_LINES - 14, clock, t, css))
             clock += 0.9
             continue
-        if kind == "fetch":
-            row += len(SHIP) - 1
-            body.append(fetch_block(payload, i, PAD, y, clock, t, css))
+        if kind == "banner":
+            row += len(BANNER) - 1
+            for k, art in enumerate(payload):
+                css.append(f".l{i}_{k}{{animation:show 0s {clock + k * 0.06:.2f}s forwards}}")
+                body.append(f'<text class="l{i}_{k}" opacity="0" x="{PAD}" y="{y + k * LINE}" fill="url(#banner)">{html.escape(art)}</text>')
             clock += 0.06 * len(payload) + 0.2
             continue
         if kind == "rich":
@@ -324,6 +299,8 @@ def render(rows, theme):
 text{{white-space:pre}}
 {style}
 </style>
+<defs><linearGradient id="banner" gradientUnits="userSpaceOnUse" x1="{PAD}" x2="{PAD + len(BANNER[0]) * CHAR:.0f}">
+<stop offset="0" stop-color="{t["public"]}"/><stop offset="1" stop-color="{t["private"]}"/></linearGradient></defs>
 <rect width="{width}" height="{height}" rx="10" fill="{t["bg"]}" stroke="{t["border"]}"/>
 <path d="M0 10a10 10 0 0 1 10-10h{width - 20}a10 10 0 0 1 10 10v{header - 10}H0z" fill="{t["frame"]}"/>
 <circle cx="20" cy="18" r="6" fill="#ff5f57"/><circle cx="40" cy="18" r="6" fill="#febc2e"/><circle cx="60" cy="18" r="6" fill="#28c840"/>
@@ -345,9 +322,9 @@ def main():
             print("    " + payload, file=sys.stderr)
         elif kind == "rich":
             print("    " + " · ".join(s for _, s in payload), file=sys.stderr)
-        elif kind == "fetch":
-            for art, (label, value) in payload:
-                print(f"    {art}  {label:<9} {value}".rstrip(), file=sys.stderr)
+        elif kind == "banner":
+            for art in payload:
+                print("    " + art.rstrip(), file=sys.stderr)
         else:
             print(f"    [chart: {len(payload['weeks'])} weeks, total {payload['total']}, private {payload['private']}]",
                   file=sys.stderr)
