@@ -191,6 +191,9 @@ def chart(c, i, x, y, w, h, clock, t, css):
     weeks = c["weeks"]
     n = len(weeks)
     gap = 2
+    gutter = 4 * CHAR    # room on the left for the y axis labels
+    x += gutter
+    w -= gutter
     bw = (w - gap * (n - 1)) / n
     top = max(a + b for _, a, b in weeks) or 1
     label_h = 14
@@ -199,6 +202,10 @@ def chart(c, i, x, y, w, h, clock, t, css):
     scale = plot_h / top
     parts = [f'<g class="l{i}" opacity="0">',
              f'<line x1="{x}" y1="{base + 0.5}" x2="{x + w}" y2="{base + 0.5}" stroke="{t["border"]}"/>']
+    for v in sorted({top, round(top / 2)} - {0}):
+        gy = base - v * scale
+        parts.append(f'<line x1="{x}" y1="{gy:.1f}" x2="{x + w}" y2="{gy:.1f}" stroke="{t["border"]}" stroke-dasharray="2 4"/>')
+        parts.append(f'<text x="{x - 6}" y="{gy + 3.5:.1f}" text-anchor="end" fill="{t["dim"]}" font-size="10">{v}</text>')
     css.append(f".l{i}{{animation:show 0s {clock:.2f}s forwards}}")
     css.append(f".b{i}{{transform-box:fill-box;transform-origin:bottom;transform:scaleY(0);"
                f"animation:grow .5s cubic-bezier(.2,.7,.2,1) forwards}}")
