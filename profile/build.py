@@ -132,7 +132,7 @@ def lines(user, contrib, releases):
             who.append(user[key])
     if user.get("blog"):
         who.append(user["blog"].replace("https://", ""))
-    who.append(f"up {years} years, {days} days")
+    who.append(f"online {years} years, {days} days")
     out += [("cmd", "whoami"), ("banner", BANNER), ("out", " · ".join(who))]
 
     if contrib:
