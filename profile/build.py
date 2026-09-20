@@ -138,10 +138,8 @@ def lines(user, contrib, releases):
         public = contrib["total"] - contrib["private"]
         out.append(("rich", [("public", f"public {public:,}"), ("private", f"private {contrib['private']:,}"),
                              (None, f"{contrib['total']:,} total")]))
-        peak_date, pub, prv = max(contrib["weeks"], key=lambda x: x[1] + x[2])
         cur, longest = contrib["streak"]
-        out.append(("out", f"streak {cur} days · longest {longest} days · "
-                           f"peak week {pub + prv:,} ({dt.date.fromisoformat(peak_date).strftime('%b %-d')})"))
+        out.append(("out", f"streak {cur} days · longest {longest} days"))
 
     if releases:
         out.append(("cmd", "gh release list --latest"))
